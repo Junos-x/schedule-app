@@ -49,22 +49,12 @@ class Response(db.Model):
 def hello_world():
     return 'Hello from Flask Backend with DB!'
 
-# !!! 注意: これはテーブル作成のための一時的なエンドポイントです。 !!!
-# !!! テーブル作成後は必ず削除するかコメントアウトしてください。      !!!
-@app.route('/init_db_on_render_once_then_delete') # URLは推測されにくいものに
-def init_db_on_render():
-    try:
-        with app.app_context(): # アプリケーションコンテキスト内で実行
-            db.create_all()
-        
-        # テーブルが実際に作成されたか確認 (SQLAlchemy 2.x 以降の推奨)
-        from sqlalchemy import inspect
-        inspector = inspect(db.engine)
-        table_names = inspector.get_table_names()
-
-        return f"Database tables created (or already exist). Tables: {table_names}. PLEASE DELETE THIS ROUTE NOW from app.py."
-    except Exception as e:
-        return f"An error occurred during DB initialization: {str(e)}"
+# === 一時的なDB初期化エンドポイントは削除（またはコメントアウト）されました ===
+# @app.route('/init_db_on_render_once_then_delete')
+# def init_db_on_render():
+#     # ... (以前のコード) ...
+#     pass 
+# =================================================================
 
 # イベント作成API (期間指定対応)
 @app.route('/api/events', methods=['POST'])
