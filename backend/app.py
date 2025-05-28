@@ -11,7 +11,13 @@ CORS(app)
 
 # --- データベースの設定 ---
 basedir = os.path.abspath(os.path.dirname(__file__))
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'app.db')
+# RenderのDATABASE_URL環境変数を優先し、なければローカルのSQLiteを使用
+# RenderのPostgreSQL接続文字列は 'postgres://' で始まるので 'postgresql://' に置換
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if DATABASE_URL and DATABASE_URL.startswith('postgres://'):
+    DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL or 'sqlite:///' + os.path.join(basedir, 'app.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
@@ -42,6 +48,23 @@ class Response(db.Model):
 @app.route('/')
 def hello_world():
     return 'Hello from Flask Backend with DB!'
+
+# !!! 注意: これはテーブル作成のための一時的なエンドポイントです。 !!!
+# !!! テーブル作成後は必ず削除するかコメントアウトしてください。      !!!
+@app.route('/init_db_on_render_once_then_delete') # URLは推測されにくいものに
+def init_db_on_render():
+    try:
+        with app.app_context(): # アプリケーションコンテキスト内で実行
+            db.create_all()
+        
+        # テーブルが実際に作成されたか確認 (SQLAlchemy 2.x 以降の推奨)
+        from sqlalchemy import inspect
+        inspector = inspect(db.engine)
+        table_names = inspector.get_table_names()
+
+        return f"Database tables created (or already exist). Tables: {table_names}. PLEASE DELETE THIS ROUTE NOW from app.py."
+    except Exception as e:
+        return f"An error occurred during DB initialization: {str(e)}"
 
 # イベント作成API (期間指定対応)
 @app.route('/api/events', methods=['POST'])
@@ -87,7 +110,7 @@ def get_event(unique_url):
     }
     return jsonify(event_data)
 
-# 回答登録API
+# 回答登録API (現在はPUTで上書きするので、純粋な新規登録としては使わないかも)
 @app.route('/api/events/<string:unique_url>/responses', methods=['POST'])
 def add_response(unique_url):
     event = Event.query.filter_by(unique_url=unique_url).first_or_404()
@@ -97,13 +120,12 @@ def add_response(unique_url):
     participant_name = data['participant_name']
     responses_data = data['responses']
 
-    # イベントの日付情報を事前に取得しておく
-    event_dates = {d.candidate_date: d for d in event.dates}
+    event_dates_map = {d.candidate_date: d for d in event.dates}
 
     for resp_item in responses_data:
         date_str = resp_item.get('date')
         status = resp_item.get('status')
-        if not date_str or status is None: # statusが0の場合も考慮
+        if not date_str or status is None:
             db.session.rollback()
             return jsonify({'error': f'Invalid response item (missing date or status): {resp_item}'}), 400
         try:
@@ -112,7 +134,7 @@ def add_response(unique_url):
             db.session.rollback()
             return jsonify({'error': f'Invalid date format: {date_str}. Use YYYY-MM-DD.'}), 400
         
-        date_obj = event_dates.get(cand_date) # 事前取得した情報から検索
+        date_obj = event_dates_map.get(cand_date)
 
         if date_obj:
             new_response = Response(
@@ -140,28 +162,23 @@ def update_responses(unique_url):
     participant_name_to_update = data['participant_name']
     new_responses_data = data['responses']
 
-    # 1. このイベントの全日付オブジェクトを取得 (IDと日付のマップも作っておくと便利)
-    event_dates_map = {d.candidate_date: d for d in event.dates} # 日付オブジェクトをキーに
+    event_dates_map = {d.candidate_date: d for d in event.dates}
     date_ids_for_event = [d.id for d in event.dates]
 
-    if not date_ids_for_event: # イベントに日付が登録されていない場合 (通常はありえない)
+    if not date_ids_for_event:
         return jsonify({'error': 'No dates found for this event to update responses for.'}), 404
 
-    # 2. 対象参加者の既存の回答を全て削除
     Response.query.filter(
         Response.date_id.in_(date_ids_for_event),
         Response.participant_name == participant_name_to_update
     ).delete(synchronize_session='fetch')
-    # 先にコミットしても良いが、エラー時のロールバックを考えると最後にまとめてコミットする方が一般的
-    # db.session.commit() 
 
-    # 3. 新しい回答を登録
     for resp_item in new_responses_data:
         date_str = resp_item.get('date')
         status = resp_item.get('status')
 
-        if not date_str or status is None: # statusが0の場合も考慮
-            db.session.rollback() # 問題があればここまでの変更をキャンセル
+        if not date_str or status is None:
+            db.session.rollback()
             return jsonify({'error': f'Invalid response item (missing date or status): {resp_item}'}), 400
         try:
             cand_date = datetime.strptime(date_str, '%Y-%m-%d').date()
@@ -169,7 +186,7 @@ def update_responses(unique_url):
             db.session.rollback()
             return jsonify({'error': f'Invalid date format: {date_str}. Use YYYY-MM-DD.'}), 400
         
-        date_obj = event_dates_map.get(cand_date) # 事前取得した情報から検索
+        date_obj = event_dates_map.get(cand_date)
 
         if date_obj:
             new_response = Response(
@@ -183,7 +200,7 @@ def update_responses(unique_url):
             db.session.rollback()
             return jsonify({'error': f'Date {date_str} not found for this event when trying to update.'}), 400
     
-    db.session.commit() # 全ての変更を確定
+    db.session.commit()
     return jsonify({'message': 'Responses updated successfully!'}), 200
 
 # 結果取得API
@@ -191,13 +208,11 @@ def update_responses(unique_url):
 def get_results(unique_url):
     event = Event.query.filter_by(unique_url=unique_url).first_or_404()
     results = []
-    # 日付順にソートして取得
     sorted_dates = sorted(event.dates, key=lambda d: d.candidate_date)
 
     for date_obj in sorted_dates:
         date_str = date_obj.candidate_date.strftime('%Y-%m-%d')
         responses_list = []
-        # 回答も何らかの順序（例:参加者名順）でソートすると表示が安定する
         sorted_responses = sorted(date_obj.responses, key=lambda r: r.participant_name)
         for response_obj in sorted_responses:
             responses_list.append({
@@ -209,9 +224,10 @@ def get_results(unique_url):
 
 # --- サーバー起動 ---
 if __name__ == '__main__':
-    # データベースファイルが存在しない場合に初期化
-    if not os.path.exists(os.path.join(basedir, 'app.db')):
-        with app.app_context():
-            db.create_all()
-            print("Database created!")
+    # ローカル開発時のみ、DATABASE_URLが設定されていなければSQLiteのDBファイルを初期化
+    if 'DATABASE_URL' not in os.environ:
+        if not os.path.exists(os.path.join(basedir, 'app.db')):
+            with app.app_context():
+                db.create_all()
+                print("Local SQLite Database created!")
     app.run(debug=True)
