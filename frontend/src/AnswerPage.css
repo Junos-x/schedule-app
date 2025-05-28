@@ -1,0 +1,60 @@
+/* AnswerPage.css */
+
+.table-container {
+  display: flex; /* Flexbox を使用 */
+  justify-content: center; /* 水平方向の中央揃え */
+  margin-top: 15px; 
+  margin-bottom: 20px;
+}
+
+.answer-table {
+  border-collapse: collapse;
+  border: 1px solid #ccc;
+  /* テーブル自体の幅は内容に合わせる (width: auto; がデフォルト) */
+}
+
+/* 既存の .answer-table th, .answer-table td のスタイル */
+.answer-table th, .answer-table td {
+  border: 1px solid #ccc;
+  padding: 10px 5px; 
+  text-align: center;
+  min-width: 60px;
+}
+
+.answer-table th {
+  background-color: #f2f2f2;
+  white-space: nowrap;
+}
+
+.answer-table td:first-child { 
+    font-weight: bold;
+    white-space: nowrap;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+.answer-table td[onClick] { /* もし td に onClick がある場合 */
+    cursor: pointer;
+}
+
+.participant-name {
+    margin-bottom: 15px;
+    /* 参加者名入力欄も中央に寄せたい場合は、同様にdivで囲んでflexを使うか、
+       この要素自体に margin: 0 auto; と width を指定します。
+       または、親要素で text-align: center; して、この要素を display: inline-block; など
+    */
+    /* 例: text-align: center; */ /* 親要素に適用する場合 */
+}
+
+/* AnswerPage全体を中央寄せにする場合 (前回提案の方法2) はこちら */
+/*
+.answer-page-container { 
+  width: 90%;
+  max-width: 800px; 
+  margin: 20px auto;
+  padding: 20px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+  border-radius: 8px;
+  background-color: #fff;
+}
+*/
