@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 
+// APIのベースURLを環境変数から取得、なければローカル開発用を指定
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
+
 function EventForm() {
   const [eventName, setEventName] = useState('');
   const [description, setDescription] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  
-  // 新しく作成されたイベントのURLを保存するためのState
   const [createdEventUrl, setCreatedEventUrl] = useState('');
-  // コピー成功メッセージ表示用State (任意)
   const [copySuccess, setCopySuccess] = useState('');
 
   const handleSubmit = async (event) => {
@@ -17,8 +17,8 @@ function EventForm() {
       alert('イベント名、開始日、終了日をすべて入力してください！');
       return;
     }
-    setCreatedEventUrl(''); // 新しいリクエストの前にクリア
-    setCopySuccess('');     // 新しいリクエストの前にクリア
+    setCreatedEventUrl('');
+    setCopySuccess('');
 
     const eventData = {
       name: eventName,
@@ -28,7 +28,8 @@ function EventForm() {
     };
 
     try {
-      const response = await fetch('http://127.0.0.1:5000/api/events', {
+      // APIエンドポイントを API_BASE_URL を使って指定
+      const response = await fetch(`${API_BASE_URL}/api/events`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -39,8 +40,7 @@ function EventForm() {
       const result = await response.json();
 
       if (response.ok) {
-        // alert(`イベントを作成しました！\n共有URL: ${result.event_url}\nこのURLをメモして、参加者に共有してください。`);
-        setCreatedEventUrl(result.event_url); // StateにURLを保存
+        setCreatedEventUrl(result.event_url);
         alert('イベントを作成しました！下に表示されたURLをコピーして共有してください。');
         setEventName('');
         setDescription('');
@@ -55,10 +55,11 @@ function EventForm() {
     }
   };
 
-  // URLをクリップボードにコピーする関数
   const copyToClipboard = () => {
     if (createdEventUrl) {
-      navigator.clipboard.writeText(`http://localhost:3000/event/${createdEventUrl}`)
+      // フロントエンドの回答ページの完全なURLをコピー
+      const fullUrlToCopy = `<span class="math-inline">\{window\.location\.origin\}/event/</span>{createdEventUrl}`;
+      navigator.clipboard.writeText(fullUrlToCopy)
         .then(() => {
           setCopySuccess('URLをコピーしました！');
         })
@@ -71,45 +72,4 @@ function EventForm() {
 
   return (
     <div>
-      <h2>新しいイベントを作成 (期間指定)</h2>
-      <form onSubmit={handleSubmit}>
-        {/* イベント名、説明、開始日、終了日の入力欄 (変更なし) */}
-        <div>
-          <label htmlFor="eventName">イベント名: </label>
-          <input type="text" id="eventName" value={eventName} onChange={(e) => setEventName(e.target.value)} />
-        </div>
-        <div>
-          <label htmlFor="description">説明 (任意): </label>
-          <input type="text" id="description" value={description} onChange={(e) => setDescription(e.target.value)} />
-        </div>
-        <div>
-          <label htmlFor="startDate">開始日: </label>
-          <input type="date" id="startDate" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-        </div>
-        <div>
-          <label htmlFor="endDate">終了日: </label>
-          <input type="date" id="endDate" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-        </div>
-        <br />
-        <button type="submit">イベント作成</button>
-      </form>
-
-      {/* 作成されたイベントURLとコピーボタンを表示する部分 */}
-      {createdEventUrl && (
-        <div style={{ marginTop: '20px', padding: '10px', border: '1px solid green' }}>
-          <p>イベントを作成しました！以下のURLを参加者に共有してください。</p>
-          <p>
-            <strong>
-              {/* フロントエンドの回答ページの完全なURLを表示 */}
-              http://localhost:3000/event/{createdEventUrl}
-            </strong>
-          </p>
-          <button onClick={copyToClipboard}>URLをコピー</button>
-          {copySuccess && <p style={{ color: 'green' }}>{copySuccess}</p>}
-        </div>
-      )}
-    </div>
-  );
-}
-
-export default EventForm;
+      <h2>新しいイベントを作成 (期間

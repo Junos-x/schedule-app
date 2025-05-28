@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-// import './ResultsPage.css'; 
+// import './ResultsPage.css';
+
+// APIのベースURLを環境変数から取得、なければローカル開発用を指定
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
 
 function ResultsPage() {
   let { uniqueUrl } = useParams();
@@ -13,15 +16,17 @@ function ResultsPage() {
     2: '日中OK',
     1: '夜OK',
     0: 'NG',
-    null: '-',
+    null: '-', 
   };
+  const meetingPossibleStatuses = [3, 2, 1];
 
   useEffect(() => {
     const fetchResults = async () => {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`http://127.0.0.1:5000/api/events/${uniqueUrl}/results`);
+        // APIエンドポイントを API_BASE_URL を使って指定
+        const response = await fetch(`${API_BASE_URL}/api/events/${uniqueUrl}/results`);
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.error || `結果の取得に失敗しました (Status: ${response.status})`);
@@ -66,48 +71,32 @@ function ResultsPage() {
     });
   });
 
-  // --- ここからハイライトロジックの修正 ---
   const dateHighlightMap = {};
-
-  // 2人間で会えるかどうかの判定関数
   const canTwoPeopleMeet = (status1, status2) => {
-    if (status1 === null || status1 === undefined || status2 === null || status2 === undefined) return false; // 未回答者は会えない
-    if (status1 === 0 || status2 === 0) return false; // どちらかがNGなら会えない
-
-    // パターン1: どちらかが終日OK(3)なら、もう片方がNG(0)以外なら会える
+    if (status1 === null || status1 === undefined || status2 === null || status2 === undefined) return false;
+    if (status1 === 0 || status2 === 0) return false;
     if (status1 === 3 && status2 !== 0) return true;
     if (status2 === 3 && status1 !== 0) return true;
-
-    // パターン2: 日中OK(2)同士なら会える
     if (status1 === 2 && status2 === 2) return true;
-
-    // パターン3: 夜OK(1)同士なら会える
     if (status1 === 1 && status2 === 1) return true;
-    
-    return false; // 上記以外は会えない
+    return false;
   };
-
   allDates.forEach(date => {
     const responsesForDate = eventResults.results.find(dr => dr.date === date)?.responses || [];
     const participantsForDate = responsesForDate.map(r => r.participant_name);
-    
-    if (participantsForDate.length < 2) { // 参加者が2人未満の日はハイライトしない
+    if (participantsForDate.length < 2) {
       dateHighlightMap[date] = false;
       return;
     }
-
-    let everyoneCanMeet = true; // その日に全員が会えるかのフラグ
-    // 全ての参加者のペアについて会えるかチェック
+    let everyoneCanMeet = true;
     for (let i = 0; i < participantsForDate.length; i++) {
       for (let j = i + 1; j < participantsForDate.length; j++) {
         const p1Name = participantsForDate[i];
         const p2Name = participantsForDate[j];
-        
         const p1Status = participantAnswers[p1Name]?.[date];
         const p2Status = participantAnswers[p2Name]?.[date];
-
         if (!canTwoPeopleMeet(p1Status, p2Status)) {
-          everyoneCanMeet = false; // 一組でも会えないペアがいたらダメ
+          everyoneCanMeet = false;
           break;
         }
       }
@@ -115,7 +104,6 @@ function ResultsPage() {
     }
     dateHighlightMap[date] = everyoneCanMeet;
   });
-  // --- ハイライトロジックの修正ここまで ---
 
   return (
     <div>

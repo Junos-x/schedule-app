@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import './AnswerPage.css'; // CSSファイルを読み込みます
+import './AnswerPage.css';
+
+// APIのベースURLを環境変数から取得、なければローカル開発用を指定
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
 
 function AnswerPage() {
   let { uniqueUrl } = useParams();
@@ -27,7 +30,8 @@ function AnswerPage() {
       setSubmissionMessage(''); 
       setInitialAnswersLoaded(false); 
       try {
-        const response = await fetch(`http://127.0.0.1:5000/api/events/${uniqueUrl}`);
+        // APIエンドポイントを API_BASE_URL を使って指定
+        const response = await fetch(`${API_BASE_URL}/api/events/${uniqueUrl}`);
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.error || `イベントが見つかりません (Status: ${response.status})`);
@@ -48,7 +52,8 @@ function AnswerPage() {
     if (participantName && event && event.dates && !initialAnswersLoaded) {
       const loadParticipantAnswers = async () => {
         try {
-          const response = await fetch(`http://127.0.0.1:5000/api/events/${uniqueUrl}/results`);
+          // APIエンドポイントを API_BASE_URL を使って指定
+          const response = await fetch(`${API_BASE_URL}/api/events/${uniqueUrl}/results`);
           if (!response.ok) {
             console.error("既存回答の取得に失敗 (results API)");
             return;
@@ -67,13 +72,12 @@ function AnswerPage() {
             }
           });
           
-          setAnswers(existingAnswers); // 既存回答で上書き、なければ空のまま
+          setAnswers(existingAnswers);
           if (foundParticipant) {
               setSubmissionMessage('以前の回答を読み込みました。必要に応じて修正してください。');
               setTimeout(() => setSubmissionMessage(''), 3000);
           } else {
-             // 新規参加者の場合はメッセージなし、または「新規回答モード」などを表示しても良い
-             setSubmissionMessage(''); // クリアしておく
+             setSubmissionMessage('');
           }
           setInitialAnswersLoaded(true);
         } catch (err) {
@@ -96,7 +100,6 @@ function AnswerPage() {
   const handleNameChange = (eventArg) => {
     const newName = eventArg.target.value;
     setParticipantName(newName);
-    // 名前がクリアされた場合、または変更された場合は、回答とロード済みフラグをリセット
     if (newName === '' || newName !== participantName) { 
         setAnswers({});
         setInitialAnswersLoaded(false); 
@@ -125,9 +128,9 @@ function AnswerPage() {
             status: answers[date]
         }))
     };
-    // setSubmissionMessage('送信中...'); // 「送信中」は一旦表示しない形に戻しています
     try {
-        const response = await fetch(`http://127.0.0.1:5000/api/events/${uniqueUrl}/responses`, {
+        // APIエンドポイントを API_BASE_URL を使って指定
+        const response = await fetch(`${API_BASE_URL}/api/events/${uniqueUrl}/responses`, {
             method: 'PUT',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(submissionData),
@@ -135,7 +138,7 @@ function AnswerPage() {
         const result = await response.json();
         if (response.ok) {
             setSubmissionMessage('回答を送信・更新しました！ありがとうございます！');
-            setInitialAnswersLoaded(false); // 送信後、同じ名前で再編集する場合のためにリセット
+            setInitialAnswersLoaded(false); 
         } else {
             setSubmissionMessage(`エラー: ${result.error || '回答の送信/更新に失敗しました。'}`);
         }
@@ -169,7 +172,6 @@ function AnswerPage() {
         </div>
         <hr />
         <h3>日程を入力してください:</h3>
-        {/* ↓↓↓ ここに table-container div を追加 ↓↓↓ */}
         <div className="table-container"> 
           <table className="answer-table">
               <thead>
@@ -212,7 +214,6 @@ function AnswerPage() {
               </tbody>
           </table>
         </div>
-        {/* ↑↑↑ table-container div はここまで ↑↑↑ */}
         <br />
         <button type="submit">回答を送信</button>
       </form>
