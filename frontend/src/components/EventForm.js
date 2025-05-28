@@ -58,7 +58,7 @@ function EventForm() {
   const copyToClipboard = () => {
     if (createdEventUrl) {
       // フロントエンドの回答ページの完全なURLをコピー
-      const fullUrlToCopy = `<span class="math-inline">\{window\.location\.origin\}/event/</span>{createdEventUrl}`;
+      const fullUrlToCopy = `${window.location.origin}/event/${createdEventUrl}`;
       navigator.clipboard.writeText(fullUrlToCopy)
         .then(() => {
           setCopySuccess('URLをコピーしました！');
@@ -72,4 +72,43 @@ function EventForm() {
 
   return (
     <div>
-      <h2>新しいイベントを作成 (期間
+      <h2>新しいイベントを作成 (期間指定)</h2>
+      <form onSubmit={handleSubmit}>
+        <div>
+          <label htmlFor="eventName">イベント名: </label>
+          <input type="text" id="eventName" value={eventName} onChange={(e) => setEventName(e.target.value)} />
+        </div>
+        <div>
+          <label htmlFor="description">説明 (任意): </label>
+          <input type="text" id="description" value={description} onChange={(e) => setDescription(e.target.value)} />
+        </div>
+        <div>
+          <label htmlFor="startDate">開始日: </label>
+          <input type="date" id="startDate" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+        </div>
+        <div>
+          <label htmlFor="endDate">終了日: </label>
+          <input type="date" id="endDate" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+        </div>
+        <br />
+        <button type="submit">イベント作成</button>
+      </form>
+
+      {createdEventUrl && (
+        <div style={{ marginTop: '20px', padding: '10px', border: '1px solid green' }}>
+          <p>イベントを作成しました！以下のURLを参加者に共有してください。</p>
+          <p>
+            <strong>
+              {/* window.location.origin を使って現在のフロントエンドのドメインを取得 */}
+              {window.location.origin}/event/{createdEventUrl}
+            </strong>
+          </p>
+          <button onClick={copyToClipboard}>URLをコピー</button>
+          {copySuccess && <p style={{ color: 'green' }}>{copySuccess}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default EventForm;
